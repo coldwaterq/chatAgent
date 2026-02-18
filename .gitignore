@@ -137,6 +137,7 @@ celerybeat.pid
 # Environments
 .env
 chat_history/
+generated_images/
 user_images/
 .envrc
 .venv
@@ -207,6 +208,3 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-
-chat_history/*
-user_images/*

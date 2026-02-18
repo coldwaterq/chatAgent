@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat Agent</title>
+  <style>
+    * { box-sizing: border-box; }
+    html {
+      height: 100%;
+      overflow: hidden;
+    }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+      height: 100%;
+      background: #1a1b26;
+      color: #c0caf5;
+      display: flex;
+      overflow: hidden;
+    }
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      min-height: 0;
+      border-right: 1px solid #3b4261;
+      background: #16161e;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar h2 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin: 0;
+      padding: 1rem;
+      border-bottom: 1px solid #3b4261;
+    }
+    .sidebar .new-chat {
+      margin: 0.75rem;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #3b4261;
+      border-radius: 8px;
+      background: #24283b;
+      color: #c0caf5;
+      cursor: pointer;
+      font-size: 0.9rem;
+      text-align: left;
+    }
+    .sidebar .new-chat:hover {
+      background: #3b4261;
+    }
+    .sidebar .sessions {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 0 0.5rem 0.5rem;
+    }
+    .sidebar .session-tab-wrapper {
+      margin: 0.25rem 0;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .sidebar .session-tab {
+      display: block;
+      flex: 1;
+      min-width: 0;
+      padding: 0.5rem 0.75rem;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: #a9b1d6;
+      font-size: 0.9rem;
+      text-align: left;
+      cursor: pointer;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sidebar .session-tab:hover {
+      background: #24283b;
+      color: #c0caf5;
+    }
+    .sidebar .session-tab.active {
+      background: #3b4261;
+      color: #c0caf5;
+    }
+    .sidebar .session-tab-edit {
+      width: 100%;
+      padding: 0.35rem 0.5rem;
+      border: 1px solid #7aa2f7;
+      border-radius: 6px;
+      background: #24283b;
+      color: #c0caf5;
+      font-size: 0.9rem;
+    }
+    .sidebar .session-tab-edit:focus {
+      outline: none;
+    }
+    .sidebar .session-delete {
+      flex-shrink: 0;
+      width: 1.75rem;
+      height: 1.75rem;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #565f89;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sidebar .session-delete:hover {
+      background: #f7768e22;
+      color: #f7768e;
+    }
+    .main {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .main h1 {
+      flex-shrink: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid #3b4261;
+      background: #16161e;
+    }
+    #messages {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 1rem 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .msg {
+      max-width: 85%;
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: #7aa2f7;
+      color: #1a1b26;
+    }
+    .msg.assistant {
+      align-self: flex-start;
+      background: #24283b;
+      border: 1px solid #3b4261;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .assistant-row {
+      display: flex;
+      flex-direction: row;
+      gap: 1rem;
+      align-items: flex-end;
+      width: 100%;
+    }
+    .response-col {
+      flex: 1 1 0;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    .reasoning-col {
+      flex: 0 0 0;
+      width: 0;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      transition: flex 0.35s ease, width 0.35s ease, opacity 0.35s ease, margin 0.35s ease;
+    }
+    .reasoning-col.has-reasoning {
+      flex: 0 0 auto;
+      width: 320px;
+      max-width: 42%;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .reasoning-col.hidden {
+      flex: 0 0 0;
+      width: 0;
+      min-width: 0;
+      overflow: hidden;
+      opacity: 0;
+      margin: 0;
+      padding: 0;
+      pointer-events: none;
+    }
+    .msg.assistant img.chat-img,
+    .msg.user img.chat-img {
+      max-width: 160px;
+      max-height: 160px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 8px;
+      margin-top: 0.5rem;
+      display: block;
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+    .msg.assistant img.chat-img:hover,
+    .msg.user img.chat-img:hover {
+      opacity: 0.9;
+    }
+    .img-wrap {
+      position: relative;
+      display: inline-block;
+    }
+    .img-tooltip {
+      position: absolute;
+      left: 0;
+      bottom: 100%;
+      margin-bottom: 6px;
+      padding: 0.5rem 0.75rem;
+      max-width: 320px;
+      font-size: 0.8rem;
+      line-height: 1.35;
+      color: #c0caf5;
+      background: #24283b;
+      border: 1px solid #3b4261;
+      border-radius: 8px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      pointer-events: none;
+      z-index: 10;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+    }
+    .img-wrap:hover .img-tooltip {
+      opacity: 1;
+      visibility: visible;
+    }
+    .img-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(0, 0, 0, 0.85);
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      cursor: pointer;
+    }
+    .img-modal.open {
+      display: flex;
+    }
+    .img-modal img {
+      max-width: 95vw;
+      max-height: 95vh;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 8px;
+      pointer-events: none;
+    }
+    .msg.error {
+      align-self: flex-start;
+      background: #f7768e22;
+      border: 1px solid #f7768e;
+      color: #f7768e;
+    }
+    #form {
+      flex-shrink: 0;
+      padding: 1rem 1.5rem;
+      border-top: 1px solid #3b4261;
+      background: #16161e;
+      display: flex;
+      gap: 0.5rem;
+    }
+    #input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.75rem 1rem;
+      border: 1px solid #3b4261;
+      border-radius: 8px;
+      background: #24283b;
+      color: #c0caf5;
+      font-size: 1rem;
+      resize: none;
+      min-height: 44px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    #input:focus {
+      outline: none;
+      border-color: #7aa2f7;
+    }
+    #input::placeholder { color: #565f89; }
+    #send {
+      padding: 0.75rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      background: #7aa2f7;
+      color: #1a1b26;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #send:hover { background: #89b4fa; }
+    #send:disabled {
+      background: #3b4261;
+      color: #565f89;
+      cursor: not-allowed;
+    }
+    #attach {
+      padding: 0.5rem;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: #565f89;
+      cursor: pointer;
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+    #attach:hover { color: #7aa2f7; }
+    .input-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+    .input-row .wrap { flex: 1 1 0%; min-width: 20rem; display: flex; flex-direction: column; gap: 0.35rem; }
+    .preview-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+    .preview-list img {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #3b4261;
+    }
+    .preview-list .remove {
+      position: relative;
+      margin: 0;
+    }
+    .preview-list .remove button {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: #f7768e;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.75rem;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .typing::after {
+      content: "▌";
+      animation: blink 0.8s step-end infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+    .msg.assistant > .running-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.75rem;
+      color: #7aa2f7;
+      margin-top: 0.5rem;
+    }
+    .msg.assistant > .running-indicator.hidden {
+      display: none;
+    }
+    .running-indicator .spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #3b4261;
+      border-top-color: #7aa2f7;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .reasoning-col .reasoning-inner {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.35s ease;
+    }
+    .reasoning-col.has-reasoning .reasoning-inner {
+      grid-template-rows: 1fr;
+    }
+    .reasoning-col .reasoning-inner > .reasoning-text {
+      min-height: 0;
+    }
+    .reasoning-text {
+      font-size: 0.7rem;
+      color: #565f89;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      word-break: break-word;
+      padding: 0.4rem 0.5rem;
+      background: #16161e;
+      border-radius: 8px;
+      border: 1px solid #3b4261;
+      max-height: 140px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .reasoning-text::-webkit-scrollbar {
+      width: 6px;
+    }
+    .reasoning-text::-webkit-scrollbar-track {
+      background: #1a1b26;
+      border-radius: 3px;
+    }
+    .reasoning-text::-webkit-scrollbar-thumb {
+      background: #3b4261;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <h2>Chats</h2>
+    <button type="button" class="new-chat">+ New chat</button>
+    <div class="sessions" id="sessions"></div>
+  </aside>
+  <main class="main">
+    <h1>Chat Agent — ask for text, images, or web search</h1>
+    <div id="messages"></div>
+    <form id="form">
+      <div class="input-row">
+        <input type="file" id="fileInput" accept="image/*" multiple hidden>
+        <button type="button" id="attach" title="Attach images">📎</button>
+        <div class="wrap">
+          <div class="preview-list" id="previewList"></div>
+          <textarea id="input" placeholder="Type a message or attach images…" rows="1"></textarea>
+        </div>
+        <button type="submit" id="send">Send</button>
+      </div>
+    </form>
+  </main>
+  <div class="img-modal" id="imgModal" aria-hidden="true">
+    <img src="" alt="Full size" id="imgModalImg">
+  </div>
+
+  <script>
+    const messagesEl = document.getElementById("messages");
+    const sessionsEl = document.getElementById("sessions");
+    const form = document.getElementById("form");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+
+    let currentSessionId = "";
+    let sessions = [];
+    let sessionTitles = {};
+    let scrollPending = false;
+    let pendingImages = [];  // { data: base64, mime: string }
+
+    const SCROLL_THRESHOLD = 120;
+
+    function isNearBottom() {
+      const { scrollTop, scrollHeight, clientHeight } = messagesEl;
+      return scrollHeight - scrollTop - clientHeight <= SCROLL_THRESHOLD;
+    }
+
+    function scrollToBottom(force) {
+      if (!force && !isNearBottom()) return;
+      if (scrollPending) return;
+      scrollPending = true;
+      requestAnimationFrame(() => {
+        const last = messagesEl.lastElementChild;
+        if (last) last.scrollIntoView({ block: "end", behavior: "auto" });
+        else messagesEl.scrollTop = messagesEl.scrollHeight;
+        scrollPending = false;
+      });
+    }
+
+    const imgModal = document.getElementById("imgModal");
+    const imgModalImg = document.getElementById("imgModalImg");
+    function openImageModal(src) {
+      imgModalImg.src = src;
+      imgModal.classList.add("open");
+      imgModal.setAttribute("aria-hidden", "false");
+    }
+    function closeImageModal() {
+      imgModal.classList.remove("open");
+      imgModal.setAttribute("aria-hidden", "true");
+    }
+    imgModal.addEventListener("click", closeImageModal);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeImageModal(); });
+
+    function renderSessions() {
+      sessionsEl.innerHTML = "";
+      sessions.forEach((s) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "session-tab-wrapper";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "session-tab" + (s.id === currentSessionId ? " active" : "");
+        btn.textContent = sessionTitles[s.id] || s.title || "New chat";
+        btn.dataset.id = s.id;
+        btn.addEventListener("click", (e) => { if (!wrapper.classList.contains("editing")) selectSession(s.id); });
+        btn.addEventListener("dblclick", (e) => {
+          e.preventDefault();
+          startRename(s.id, btn);
+        });
+        wrapper.appendChild(btn);
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "session-delete";
+        delBtn.title = "Remove from list (kept on disk)";
+        delBtn.innerHTML = "×";
+        delBtn.dataset.id = s.id;
+        delBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (wrapper.classList.contains("editing")) return;
+          deleteSession(s.id);
+        });
+        wrapper.appendChild(delBtn);
+        sessionsEl.appendChild(wrapper);
+      });
+    }
+
+    function deleteSession(id) {
+      fetch("/api/sessions/" + encodeURIComponent(id), { method: "DELETE" })
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then(() => {
+          sessions = sessions.filter((s) => s.id !== id);
+          if (currentSessionId === id) {
+            currentSessionId = "";
+            messagesEl.innerHTML = "";
+          }
+          delete sessionTitles[id];
+          renderSessions();
+        })
+        .catch(() => {});
+    }
+
+    function startRename(id, btn) {
+      const wrapper = btn.closest(".session-tab-wrapper");
+      if (wrapper.classList.contains("editing")) return;
+      wrapper.classList.add("editing");
+      const title = sessionTitles[id] || sessions.find((s) => s.id === id)?.title || "New chat";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "session-tab-edit";
+      input.value = title;
+      input.dataset.id = id;
+      btn.style.display = "none";
+      wrapper.appendChild(input);
+      input.focus();
+      input.select();
+      function finish() {
+        if (!wrapper.classList.contains("editing")) return;
+        const newTitle = input.value.trim() || "New chat";
+        input.remove();
+        btn.style.display = "";
+        wrapper.classList.remove("editing");
+        fetch("/api/sessions/" + encodeURIComponent(id), {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: newTitle }),
+        })
+          .then((r) => (r.ok ? r.json() : Promise.reject()))
+          .then((data) => {
+            sessionTitles[id] = data.title;
+            const s = sessions.find((s) => s.id === id);
+            if (s) s.title = data.title;
+            btn.textContent = data.title;
+          })
+          .catch(() => { btn.textContent = sessionTitles[id] || title; });
+      }
+      input.addEventListener("blur", finish);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          input.blur();
+        }
+        if (e.key === "Escape") {
+          input.value = title;
+          input.blur();
+        }
+      });
+    }
+
+    function selectSession(id) {
+      currentSessionId = id || "";
+      renderSessions();
+      if (id) {
+        fetch("/api/sessions/" + encodeURIComponent(id))
+          .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Load failed"))))
+          .then((data) => {
+            messagesEl.innerHTML = "";
+            (data.messages || []).forEach((m) => {
+              if (m.role === "system") return;
+              if (m.role === "tool") return;
+              const images = Array.isArray(m.images) ? m.images : [];
+              if (m.role === "assistant" && m.tool_calls && !(m.content || images.length)) return;
+              appendMessageToDOM(m.role, m.content, images);
+            });
+            scrollToBottom(true);
+          })
+          .catch(() => {
+            messagesEl.innerHTML = "";
+          });
+      } else {
+        messagesEl.innerHTML = "";
+      }
+      input.focus();
+    }
+
+    function imageSrc(url) {
+      if (!url || typeof url !== "string") return "";
+      if (url.startsWith("http://") || url.startsWith("https://")) return url;
+      return window.location.origin + (url.startsWith("/") ? url : "/" + url);
+    }
+
+    function formatImageParams(params) {
+      if (!params || typeof params !== "object") return "";
+      const lines = [];
+      if (params.prompt != null) lines.push("Prompt: " + String(params.prompt).trim());
+      if (params.seed != null && params.seed !== "") lines.push("Seed: " + params.seed);
+      if (params.steps != null) lines.push("Steps: " + params.steps);
+      if (params.cfg_scale != null) lines.push("CFG scale: " + params.cfg_scale);
+      if (params.aspect_ratio != null) lines.push("Aspect ratio: " + params.aspect_ratio);
+      if (params.width != null && params.height != null) lines.push("Size: " + params.width + "×" + params.height);
+      if (params.negative_prompt != null && String(params.negative_prompt).trim()) lines.push("Negative prompt: " + String(params.negative_prompt).trim());
+      return lines.join("\n") || "";
+    }
+
+    function appendMessageToDOM(role, content, images) {
+      const div = document.createElement("div");
+      div.className = "msg " + role;
+      const inner = document.createElement("div");
+      if (role === "user" && Array.isArray(content)) {
+        content.forEach((part) => {
+          if (part.type === "text" && part.text) {
+            const p = document.createElement("span");
+            p.textContent = part.text;
+            inner.appendChild(p);
+          } else if (part.type === "image_url" && part.image_url && part.image_url.url) {
+            const img = document.createElement("img");
+            img.className = "chat-img";
+            img.src = imageSrc(part.image_url.url);
+            img.alt = "Attached image";
+            img.onload = scrollToBottom;
+            img.onerror = function () { this.style.display = "none"; };
+            img.addEventListener("click", () => openImageModal(img.src));
+            inner.appendChild(img);
+          }
+        });
+      } else {
+        inner.textContent = content || "";
+      }
+      div.appendChild(inner);
+      const imgList = role === "assistant" && Array.isArray(images) ? images : [];
+      if (imgList.length) {
+        imgList.forEach((item) => {
+          const url = typeof item === "string" ? item : (item && item.url);
+          const params = (item && item.params) || {};
+          if (!url) return;
+          const wrap = document.createElement("span");
+          wrap.className = "img-wrap";
+          const img = document.createElement("img");
+          img.className = "chat-img";
+          img.src = imageSrc(url);
+          img.alt = "Generated image";
+          img.onload = scrollToBottom;
+          img.onerror = function () { this.style.display = "none"; };
+          img.addEventListener("click", () => openImageModal(img.src));
+          wrap.appendChild(img);
+          const tip = formatImageParams(params);
+          if (tip) {
+            const tooltip = document.createElement("span");
+            tooltip.className = "img-tooltip";
+            tooltip.textContent = tip;
+            wrap.appendChild(tooltip);
+          }
+          div.appendChild(wrap);
+        });
+      }
+      messagesEl.appendChild(div);
+      scrollToBottom(true);
+      return inner;
+    }
+
+    function addMessage(role, content, isError) {
+      const div = document.createElement("div");
+      div.className = "msg " + (isError ? "error" : role);
+      const inner = document.createElement("div");
+      inner.textContent = content || "";
+      div.appendChild(inner);
+      messagesEl.appendChild(div);
+      scrollToBottom(true);
+      return inner;
+    }
+
+    function appendToMessage(el, text) {
+      el.textContent += text;
+      scrollToBottom();
+    }
+
+    const fileInput = document.getElementById("fileInput");
+    const attachBtn = document.getElementById("attach");
+    const previewList = document.getElementById("previewList");
+
+    function renderPreviews() {
+      previewList.innerHTML = "";
+      pendingImages.forEach((img, i) => {
+        const wrap = document.createElement("div");
+        wrap.className = "remove";
+        const thumb = document.createElement("img");
+        thumb.src = "data:" + (img.mime || "image/jpeg") + ";base64," + img.data;
+        thumb.alt = "Preview";
+        wrap.appendChild(thumb);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = "×";
+        btn.title = "Remove image";
+        btn.addEventListener("click", () => {
+          pendingImages.splice(i, 1);
+          renderPreviews();
+        });
+        wrap.appendChild(btn);
+        previewList.appendChild(wrap);
+      });
+    }
+
+    function addImageFiles(files) {
+      if (!files || !files.length) return;
+      const mimes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        if (!mimes.some((m) => f.type === m)) continue;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result;
+          const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            pendingImages.push({ mime: match[1], data: match[2] });
+            renderPreviews();
+          }
+        };
+        reader.readAsDataURL(f);
+      }
+    }
+
+    function resizeInput() {
+      input.style.height = "auto";
+      input.style.height = input.scrollHeight + "px";
+    }
+    input.addEventListener("input", resizeInput);
+
+    attachBtn.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => {
+      addImageFiles(e.target.files);
+      e.target.value = "";
+    });
+    input.addEventListener("paste", (e) => {
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      const files = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) files.push(items[i].getAsFile());
+      }
+      if (files.length) {
+        e.preventDefault();
+        addImageFiles(files);
+      }
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text && !pendingImages.length) return;
+
+      input.value = "";
+      resizeInput();
+      const imagesToSend = pendingImages.slice();
+      pendingImages = [];
+      renderPreviews();
+      sendBtn.disabled = true;
+
+      const displayContent = [];
+      if (text) displayContent.push({ type: "text", text });
+      imagesToSend.forEach((img) => {
+        displayContent.push({ type: "image_url", image_url: { url: "data:" + (img.mime || "image/jpeg") + ";base64," + img.data } });
+      });
+      const userContent = displayContent.length === 1 && displayContent[0].type === "text"
+        ? displayContent[0].text
+        : displayContent;
+      appendMessageToDOM("user", userContent);
+
+      const assistantContent = document.createElement("div");
+      assistantContent.className = "msg assistant";
+      const assistantRow = document.createElement("div");
+      assistantRow.className = "assistant-row";
+      const responseCol = document.createElement("div");
+      responseCol.className = "response-col";
+      const textNode = document.createElement("div");
+      textNode.className = "typing";
+      responseCol.appendChild(textNode);
+      assistantRow.appendChild(responseCol);
+      const reasoningCol = document.createElement("div");
+      reasoningCol.className = "reasoning-col";
+      const reasoningInner = document.createElement("div");
+      reasoningInner.className = "reasoning-inner";
+      const reasoningText = document.createElement("div");
+      reasoningText.className = "reasoning-text";
+      reasoningInner.appendChild(reasoningText);
+      reasoningCol.appendChild(reasoningInner);
+      assistantRow.appendChild(reasoningCol);
+      assistantContent.appendChild(assistantRow);
+      const runningIndicator = document.createElement("div");
+      runningIndicator.className = "running-indicator";
+      runningIndicator.setAttribute("aria-hidden", "false");
+      const spinner = document.createElement("div");
+      spinner.className = "spinner";
+      spinner.setAttribute("aria-hidden", "true");
+      const runningLabel = document.createElement("span");
+      runningLabel.textContent = "Thinking…";
+      runningIndicator.appendChild(spinner);
+      runningIndicator.appendChild(runningLabel);
+      assistantContent.appendChild(runningIndicator);
+      messagesEl.appendChild(assistantContent);
+      scrollToBottom(true);
+
+      try {
+        const body = { message: text || "", session_id: currentSessionId || undefined };
+        if (imagesToSend.length) body.images = imagesToSend;
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || res.statusText);
+        }
+
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += dec.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6);
+            if (data === "[DONE]") continue;
+            try {
+              const event = JSON.parse(data);
+              if (event.type === "reasoning" && event.delta) {
+                reasoningCol.classList.add("has-reasoning");
+                appendToMessage(reasoningText, event.delta);
+              } else if (event.type === "text" && event.delta) {
+                textNode.classList.remove("typing");
+                appendToMessage(textNode, event.delta);
+              } else if (event.type === "done") {
+                reasoningCol.classList.add("hidden");
+                runningIndicator.classList.add("hidden");
+                runningIndicator.setAttribute("aria-hidden", "true");
+              } else if (event.type === "image" && event.url) {
+                const wrap = document.createElement("span");
+                wrap.className = "img-wrap";
+                const img = document.createElement("img");
+                img.className = "chat-img";
+                img.src = imageSrc(event.url);
+                img.alt = "Generated image";
+                img.onload = scrollToBottom;
+                img.onerror = function () { this.style.display = "none"; };
+                img.addEventListener("click", () => openImageModal(img.src));
+                wrap.appendChild(img);
+                const tip = formatImageParams(event.params);
+                if (tip) {
+                  const tooltip = document.createElement("span");
+                  tooltip.className = "img-tooltip";
+                  tooltip.textContent = tip;
+                  wrap.appendChild(tooltip);
+                }
+                responseCol.appendChild(wrap);
+                scrollToBottom();
+              } else if (event.type === "error") {
+                textNode.classList.remove("typing");
+                textNode.textContent = (textNode.textContent || "") + "\nError: " + (event.message || "Unknown error");
+                runningIndicator.classList.add("hidden");
+                runningIndicator.setAttribute("aria-hidden", "true");
+              } else if (event.type === "session_id" && event.session_id) {
+                currentSessionId = event.session_id;
+                if (event.title) sessionTitles[currentSessionId] = event.title;
+                if (!sessions.some((s) => s.id === currentSessionId)) {
+                  sessions.unshift({ id: currentSessionId, title: event.title || "New chat", updated_at: "", created_at: "" });
+                  renderSessions();
+                } else {
+                  const s = sessions.find((s) => s.id === currentSessionId);
+                  if (s && event.title) s.title = event.title;
+                  renderSessions();
+                }
+              }
+            } catch (_) {}
+          }
+        }
+
+        textNode.classList.remove("typing");
+        reasoningCol.classList.add("hidden");
+        runningIndicator.classList.add("hidden");
+        runningIndicator.setAttribute("aria-hidden", "true");
+        scrollToBottom();
+      } catch (err) {
+        textNode.classList.remove("typing");
+        textNode.textContent = "Error: " + err.message;
+        assistantContent.classList.add("error");
+        runningIndicator.classList.add("hidden");
+        runningIndicator.setAttribute("aria-hidden", "true");
+        scrollToBottom();
+      }
+
+      sendBtn.disabled = false;
+      input.focus();
+    });
+
+    document.querySelector(".new-chat").addEventListener("click", () => selectSession(""));
+
+    (async function init() {
+      try {
+        const res = await fetch("/api/sessions");
+        sessions = res.ok ? await res.json() : [];
+        sessions.forEach((s) => { sessionTitles[s.id] = s.title; });
+        renderSessions();
+        if (sessions.length) {
+          selectSession(sessions[0].id);
+        } else {
+          currentSessionId = "";
+          renderSessions();
+        }
+      } catch {
+        sessions = [];
+        renderSessions();
+      }
+      input.focus();
+    })();
+  </script>
+</body>
+</html>
